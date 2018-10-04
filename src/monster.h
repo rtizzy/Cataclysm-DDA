@@ -61,6 +61,16 @@ enum monster_effect_cache_fields {
     NUM_MEFF
 };
 
+enum monster_horde_attraction {
+    MHA_NULL = 0,
+    MHA_ALWAYS,
+    MHA_LARGE,
+    MHA_OUTDOORS,
+    MHA_OUTDOORS_AND_LARGE,
+    MHA_NEVER,
+    NUM_MONSTER_HORDE_ATTRACTION
+};
+
 class monster : public Creature
 {
         friend class editmap;
@@ -259,10 +269,12 @@ class monster : public Creature
         void melee_attack( Creature &p );
         void melee_attack( Creature &p, float accuracy );
         void melee_attack( Creature &p, bool ) = delete;
-        void deal_projectile_attack( Creature *source, dealt_projectile_attack &attack ) override;
+        void deal_projectile_attack( Creature *source, dealt_projectile_attack &attack,
+                                     bool print_messages = true ) override;
         void deal_damage_handle_type( const damage_unit &du, body_part bp, int &damage,
                                       int &pain ) override;
-        void apply_damage( Creature *source, body_part bp, int amount ) override;
+        void apply_damage( Creature *source, body_part bp, int amount,
+                           const bool bypass_med = false ) override;
         // create gibs/meat chunks/blood etc all over the place, does not kill, can be called on a dead monster.
         void explode();
         // Let the monster die and let its body explode into gibs
@@ -304,6 +316,10 @@ class monster : public Creature
         float  get_melee() const override; // For determining attack skill when awarding dodge practice.
         float  hit_roll() const override;  // For the purposes of comparing to player::dodge_roll()
         float  dodge_roll() override;  // For the purposes of comparing to player::hit_roll()
+
+        monster_horde_attraction get_horde_attraction();
+        void set_horde_attraction( monster_horde_attraction mha );
+        bool will_join_horde( int size );
 
         /** Returns multiplier on fall damage at low velocity (knockback/pit/1 z-level, not 5 z-levels) */
         float fall_damage_mod() const override;
@@ -389,6 +405,8 @@ class monster : public Creature
         const mtype *type;
         bool no_extra_death_drops;    // if true, don't spawn loot items as part of death
         bool no_corpse_quiet = false; //if true, monster dies quietly and leaves no corpse
+        bool death_drops =
+            true; // Turned to false for simulating monsters during distant missions so they don't drop in sight
         bool is_dead() const;
         bool made_footstep;
         std::string unique_name; // If we're unique
@@ -459,6 +477,7 @@ class monster : public Creature
         int baby_timer;
         bool biosignatures;
         int biosig_timer;
+        monster_horde_attraction horde_attraction;
         /** Found path. Note: Not used by monsters that don't pathfind! **/
         std::vector<tripoint> path;
         std::bitset<NUM_MEFF> effect_cache;

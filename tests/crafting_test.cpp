@@ -232,12 +232,13 @@ TEST_CASE( "charge_handling" )
         std::vector<item> tools;
         tools.emplace_back( "hotplate", -1, 20 );
         tools.emplace_back( "soldering_iron", -1, 20 );
+        tools.insert( tools.end(), 10, item( "solder_wire" ) );
         tools.emplace_back( "screwdriver" );
         tools.emplace_back( "mold_plastic" );
         tools.insert( tools.end(), 6, item( "plastic_chunk" ) );
         tools.insert( tools.end(), 2, item( "blade" ) );
         tools.insert( tools.end(), 5, item( "cable" ) );
-        tools.emplace_back( "motor_small" );
+        tools.emplace_back( "motor_tiny" );
         tools.emplace_back( "power_supply" );
         tools.emplace_back( "scrap" );
 
@@ -251,12 +252,13 @@ TEST_CASE( "charge_handling" )
         tools.emplace_back( "hotplate", -1, 5 );
         tools.emplace_back( "soldering_iron", -1, 5 );
         tools.emplace_back( "soldering_iron", -1, 5 );
+        tools.insert( tools.end(), 10, item( "solder_wire" ) );
         tools.emplace_back( "screwdriver" );
         tools.emplace_back( "mold_plastic" );
         tools.insert( tools.end(), 6, item( "plastic_chunk" ) );
         tools.insert( tools.end(), 2, item( "blade" ) );
         tools.insert( tools.end(), 5, item( "cable" ) );
-        tools.emplace_back( "motor_small" );
+        tools.emplace_back( "motor_tiny" );
         tools.emplace_back( "power_supply" );
         tools.emplace_back( "scrap" );
 
@@ -270,6 +272,7 @@ TEST_CASE( "charge_handling" )
         hotplate.contents.emplace_back( "battery_ups" );
         tools.push_back( hotplate );
         item soldering_iron( "soldering_iron", -1, 0 );
+        tools.insert( tools.end(), 10, item( "solder_wire" ) );
         soldering_iron.contents.emplace_back( "battery_ups" );
         tools.push_back( soldering_iron );
         tools.emplace_back( "screwdriver" );
@@ -277,7 +280,7 @@ TEST_CASE( "charge_handling" )
         tools.insert( tools.end(), 6, item( "plastic_chunk" ) );
         tools.insert( tools.end(), 2, item( "blade" ) );
         tools.insert( tools.end(), 5, item( "cable" ) );
-        tools.emplace_back( "motor_small" );
+        tools.emplace_back( "motor_tiny" );
         tools.emplace_back( "power_supply" );
         tools.emplace_back( "scrap" );
         tools.emplace_back( "UPS_off", -1, 500 );
@@ -293,6 +296,7 @@ TEST_CASE( "charge_handling" )
         hotplate.contents.emplace_back( "battery_ups" );
         tools.push_back( hotplate );
         item soldering_iron( "soldering_iron", -1, 0 );
+        tools.insert( tools.end(), 10, item( "solder_wire" ) );
         soldering_iron.contents.emplace_back( "battery_ups" );
         tools.push_back( soldering_iron );
         tools.emplace_back( "screwdriver" );
@@ -300,7 +304,7 @@ TEST_CASE( "charge_handling" )
         tools.insert( tools.end(), 6, item( "plastic_chunk" ) );
         tools.insert( tools.end(), 2, item( "blade" ) );
         tools.insert( tools.end(), 5, item( "cable" ) );
-        tools.emplace_back( "motor_small" );
+        tools.emplace_back( "motor_tiny" );
         tools.emplace_back( "power_supply" );
         tools.emplace_back( "scrap" );
         tools.emplace_back( "UPS_off", -1, 10 );

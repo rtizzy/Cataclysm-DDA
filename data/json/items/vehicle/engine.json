@@ -40,6 +40,14 @@
     ]
   },
   {
+    "abstract": "engine_steam",
+    "copy-from": "engine_combustion",
+    "type": "ENGINE",
+    "name": "base steam engine",
+    "looks_like": "v12_diesel",
+    "faults": [ "fault_engine_belt_drive", "fault_engine_filter_air", "fault_engine_pump_water", "fault_engine_starter" ]
+  },
+  {
     "id": "1cyl_combustion",
     "copy-from": "engine_gasoline",
     "type": "ENGINE",
@@ -161,5 +169,93 @@
     "volume": 60,
     "price": 32000,
     "displacement": 1200
+  },
+  {
+    "id": "steam_watts_small",
+    "copy-from": "engine_steam",
+    "type": "ENGINE",
+    "name": "makeshift steam engine",
+    "description": "A small, primitive, steam engine.  An integrated boiler burns coal to heat water into steam, driving a reciprocating shaft.  A condenser recaptures the water, making this a closed cycle system.",
+    "weight": 225000,
+    "volume": 250,
+    "price": 225000,
+    "price_postapoc": 300000
+  },
+  {
+    "id": "steam_triple_small",
+    "copy-from": "engine_steam",
+    "type": "ENGINE",
+    "name": "small steam engine",
+    "description": "A small steam engine.  An integrated boiler burns coal to heat water into steam, driving a reciprocating shaft.  A condenser recaptures the water, making this a closed cycle system.",
+    "weight": 180000,
+    "volume": 150,
+    "price": 555000,
+    "price_postapoc": 1110000
+  },
+  {
+    "id": "steam_triple_medium",
+    "copy-from": "engine_steam",
+    "type": "ENGINE",
+    "name": "medium steam engine",
+    "description": "A medium sized steam engine.  An integrated boiler burns coal to heat water into steam, driving a reciprocating shaft.  A condenser recaptures the water, making this a closed cycle system.",
+    "weight": 280000,
+    "volume": 230,
+    "price": 870000,
+    "price_postapoc": 1740000
+  },
+  {
+    "id": "engine_block_massive",
+    "copy-from": "spare_part",
+    "type": "GENERIC",
+    "name": "massive engine block",
+    "description": "The beginnings of a massive gas or diesel engine.  It's not good for much of anything on its own.",
+    "material": "iron",
+    "weight": 280000,
+    "volume": 25,
+    "price": 30000
+  },
+  {
+    "id": "engine_block_large",
+    "copy-from": "spare_part",
+    "type": "GENERIC",
+    "name": "large engine block",
+    "description": "The beginnings of a large gas or diesel engine.  It's not good for much of anything on its own.",
+    "material": "iron",
+    "weight": 190000,
+    "volume": 20,
+    "price": 20000
+  },
+  {
+    "id": "engine_block_medium",
+    "copy-from": "spare_part",
+    "type": "GENERIC",
+    "name": "medium engine block",
+    "description": "The beginnings of a medium gas or diesel engine.  It's not good for much of anything on its own.",
+    "material": "iron",
+    "weight": 90000,
+    "volume": 10,
+    "price": 10000
+  },
+  {
+    "id": "engine_block_small",
+    "copy-from": "spare_part",
+    "type": "GENERIC",
+    "name": "small engine block",
+    "description": "The beginnings of a small gas or diesel engine.  It's not good for much of anything on its own.",
+    "material": "iron",
+    "weight": 40000,
+    "volume": 5,
+    "price": 5000
+  },
+  {
+    "id": "engine_block_tiny",
+    "copy-from": "spare_part",
+    "type": "GENERIC",
+    "name": "tiny engine block",
+    "description": "The beginnings of a tiny gas or diesel engine.  It's not good for much of anything on its own.",
+    "material": "iron",
+    "weight": 8000,
+    "volume": 2,
+    "price": 3500
   }
 ]

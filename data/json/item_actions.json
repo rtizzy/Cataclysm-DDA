@@ -54,7 +54,7 @@
     },{
         "type" : "item_action",
         "id" : "HOTPLATE",
-        "name" : "Heat up food"
+        "name" : "Heat up food (with it)"
     },{
         "type" : "item_action",
         "id" : "MISC_REPAIR",
@@ -161,10 +161,6 @@
         "name" : "Saw down barrel"
     },{
         "type" : "item_action",
-        "id" : "DIG",
-        "name" : "Clear rubble"
-    },{
-        "type" : "item_action",
         "id" : "ACIDBOMB_ACT",
         "name" : "Activate"
     },{
@@ -234,7 +230,7 @@
     },{
         "type" : "item_action",
         "id" : "CAMERA",
-        "name" : "Use"
+        "name" : "Use camera"
     },{
         "type" : "item_action",
         "id" : "CAN_GOO",
@@ -242,6 +238,10 @@
     },{
         "type" : "item_action",
         "id" : "CAPTURE_MONSTER_ACT",
+        "name" : "Capture/place"
+    },{
+        "type" : "item_action",
+        "id" : "CAPTURE_MONSTER_VEH",
         "name" : "Capture/place"
     },{
         "type" : "item_action",
@@ -259,6 +259,10 @@
         "type" : "item_action",
         "id" : "CHEW",
         "name" : "Chew"
+    },{
+        "type" : "item_action",
+        "id" : "CLEAR_RUBBLE",
+        "name" : "Clear rubble"
     },{
         "type" : "item_action",
         "id" : "COKE",
@@ -287,6 +291,10 @@
         "type" : "item_action",
         "id" : "DATURA",
         "name" : "Eat"
+    },{
+        "type" : "item_action",
+        "id" : "DIG",
+        "name" : "Dig pit"
     },{
         "type" : "item_action",
         "id" : "DIRECTIONAL_ANTENNA",
@@ -329,6 +337,10 @@
         "name" : "Use"
     },{
         "type" : "item_action",
+        "id" : "FILL_PIT",
+        "name" : "Fill pit / tamp ground"
+    },{
+        "type" : "item_action",
         "id" : "FIRECRACKER",
         "name" : "Light up"
     },{
@@ -369,10 +381,6 @@
         "name" : "Take"
     },{
         "type" : "item_action",
-        "id" : "FUN_HALLU",
-        "name" : "Eat"
-    },{
-        "type" : "item_action",
         "id" : "GRANADE",
         "name" : "Activate"
     },{
@@ -398,7 +406,7 @@
     },{
         "type" : "item_action",
         "id" : "HEAT_FOOD",
-        "name" : "Heat up food"
+        "name" : "Heat up food (in it)"
     },{
         "type" : "item_action",
         "id" : "HONEYCOMB",
@@ -477,11 +485,11 @@
         "name" : "Cook"
     },{
         "type" : "item_action",
-        "id" : "MUTAGEN",
+        "id" : "mutagen",
         "name" : "Consume"
     },{
         "type" : "item_action",
-        "id" : "MUT_IV",
+        "id" : "mutagen_iv",
         "name" : "Inject"
     },{
         "type" : "item_action",
@@ -546,6 +554,10 @@
     },{
         "type" : "item_action",
         "id" : "PURIFY_IV",
+        "name" : "Inject"
+    },{
+        "type" : "item_action",
+        "id" : "PURIFY_SMART",
         "name" : "Inject"
     },{
         "type" : "item_action",
@@ -759,6 +771,11 @@
     },
     {
         "type" : "item_action",
+        "id" : "BIRDFOOD",
+        "name" : "Place"
+    },
+    {
+        "type" : "item_action",
         "id" : "install_bionic",
         "name" : "Install bionic"
     },
@@ -776,5 +793,25 @@
         "type" : "item_action",
         "id" : "BREAK_STICK",
         "name" : "Break stick"
+    },
+    {
+        "type" : "item_action",
+        "id" : "WEAK_ANTIBIOTIC",
+        "name" : "Take"
+    },
+    {
+        "type" : "item_action",
+        "id" : "DISASSEMBLE",
+        "name" : "Get content"
+    },
+    {
+        "type" : "item_action",
+        "id" : "STRONG_ANTIBIOTIC",
+        "name" : "Take"
+    },
+    {
+        "type" : "item_action",
+        "id" : "PANACEA",
+        "name" : "Take"
     }
 ]

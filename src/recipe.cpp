@@ -13,6 +13,9 @@
 #include <numeric>
 #include <math.h>
 
+struct oter_t;
+using oter_str_id = string_id<oter_t>;
+
 recipe::recipe() : skill_used( skill_id::NULL_ID() ) {}
 
 int recipe::batch_time( int batch, float multiplier, size_t assistants ) const
@@ -129,6 +132,11 @@ void recipe::load( JsonObject &jo, const std::string &src )
         }
     }
 
+    // Never let the player have a debug or NPC recipe
+    if( jo.has_bool( "never_learn" ) ) {
+        assign( jo, "never_learn", never_learn );
+    }
+
     if( jo.has_member( "decomp_learn" ) ) {
         learn_by_disassembly.clear();
 
@@ -183,6 +191,7 @@ void recipe::load( JsonObject &jo, const std::string &src )
 
         assign( jo, "category", category, strict );
         assign( jo, "subcategory", subcategory, strict );
+        assign( jo, "description", description, strict );
         assign( jo, "reversible", reversible, strict );
 
         if( jo.has_member( "byproducts" ) ) {
@@ -200,9 +209,9 @@ void recipe::load( JsonObject &jo, const std::string &src )
     }
 
     // inline requirements are always replaced (cannot be inherited)
-    const auto req_id = string_format( "inline_%s_%s", type.c_str(), ident_.c_str() );
+    const requirement_id req_id( string_format( "inline_%s_%s", type.c_str(), ident_.c_str() ) );
     requirement_data::load_requirement( jo, req_id );
-    reqs_internal = { { requirement_id( req_id ), 1 } };
+    reqs_internal = { { req_id, 1 } };
 }
 
 void recipe::finalize()
@@ -215,7 +224,7 @@ void recipe::finalize()
     reqs_internal.clear();
 
     if( contained && container == "null" ) {
-        container = item::find_type( result_ )->default_container;
+        container = item::find_type( result_ )->default_container.value_or( "null" );
     }
 
     if( autolearn && autolearn_requirements.empty() ) {
@@ -236,7 +245,11 @@ void recipe::add_requirements( const std::vector<std::pair<requirement_id, int>>
 
 std::string recipe::get_consistency_error() const
 {
-    if( !item::type_is_defined( result_ ) ) {
+    if( !item::type_is_defined( result_ )  && category != "CC_BUILDING" ) {
+        return "defines invalid result";
+    }
+
+    if( category == "CC_BUILDING" && !oter_str_id( result_.c_str() ).is_valid() ) {
         return "defines invalid result";
     }
 

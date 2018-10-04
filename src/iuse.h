@@ -51,7 +51,6 @@ class iuse
         int vaccine( player *, item *, bool, const tripoint & );
         int flu_vaccine( player *, item *, bool, const tripoint & );
         int poison( player *, item *, bool, const tripoint & );
-        int fun_hallu( player *, item *, bool, const tripoint & );
         int meditate( player *, item *, bool, const tripoint & );
         int thorazine( player *, item *, bool, const tripoint & );
         int prozac( player *, item *, bool, const tripoint & );
@@ -67,6 +66,7 @@ class iuse
         int mut_iv( player *, item *, bool, const tripoint & );
         int purifier( player *, item *, bool, const tripoint & );
         int purify_iv( player *, item *, bool, const tripoint & );
+        int purify_smart( player *, item *, bool, const tripoint & );
         int marloss( player *, item *, bool, const tripoint & );
         int marloss_seed( player *, item *, bool, const tripoint & );
         int marloss_gel( player *, item *, bool, const tripoint & );
@@ -74,6 +74,7 @@ class iuse
         int dogfood( player *, item *, bool, const tripoint & );
         int catfood( player *, item *, bool, const tripoint & );
         int feedcattle( player *, item *, bool, const tripoint & );
+        int feedbird( player *, item *, bool, const tripoint & );
         // TOOLS
         int sew_advanced( player *, item *, bool, const tripoint & );
         int scissors( player *, item *, bool, const tripoint & );
@@ -89,6 +90,8 @@ class iuse
         int crowbar( player *, item *, bool, const tripoint & );
         int makemound( player *, item *, bool, const tripoint & );
         int dig( player *, item *, bool, const tripoint & );
+        int fill_pit( player *, item *, bool, const tripoint & );
+        int clear_rubble( player *, item *, bool, const tripoint & );
         int siphon( player *, item *, bool, const tripoint & );
         int chainsaw_off( player *, item *, bool, const tripoint & );
         int chainsaw_on( player *, item *, bool, const tripoint & );
@@ -110,6 +113,7 @@ class iuse
         int can_goo( player *, item *, bool, const tripoint & );
         int throwable_extinguisher_act( player *, item *, bool, const tripoint & );
         int directional_hologram( player *, item *, bool, const tripoint & );
+        int capture_monster_veh( player *, item *, bool, const tripoint & );
         int capture_monster_act( player *, item *, bool, const tripoint & );
         int pipebomb_act( player *, item *, bool, const tripoint & );
         int granade( player *, item *, bool, const tripoint & );
@@ -196,6 +200,11 @@ class iuse
         int solarpack( player *, item *, bool, const tripoint & );
         int solarpack_off( player *, item *, bool, const tripoint & );
         int break_stick( player *, item *, bool, const tripoint & );
+        int weak_antibiotic( player *, item *, bool, const tripoint & );
+        int strong_antibiotic( player *, item *, bool, const tripoint & );
+        int instant_antibiotic( player *, item *, bool, const tripoint & );
+        int panacea( player *, item *, bool, const tripoint & );
+        int magnesium_tablet( player *, item *, bool, const tripoint & );
 
         // MACGUFFINS
 
@@ -207,6 +216,8 @@ class iuse
 
         int remoteveh( player *, item *, bool, const tripoint & );
 
+        int disassemble( player *, item *, bool, const tripoint & );
+
         // ARTIFACTS
         /* This function is used when an artifact is activated.
            It examines the item's artifact-specific properties.
@@ -217,10 +228,9 @@ class iuse
         static void play_music( player &p, const tripoint &source, int volume, int max_morale );
 
         // Helper for handling pesky wannabe-artists
-        static int handle_ground_graffiti( player &p, item *it, const std::string prefix );
+        static int handle_ground_graffiti( player &p, item *it, const std::string &prefix );
 
 };
-
 
 typedef int ( iuse::*use_function_pointer )( player *, item *, bool, const tripoint & );
 
