@@ -1,12 +1,15 @@
 #include "itype.h"
 
+#include <cstdlib>
 #include <utility>
 
 #include "debug.h"
-#include "player.h"
-#include "translations.h"
 #include "item.h"
+#include "player.h"
 #include "ret_val.h"
+#include "translations.h"
+
+#include "math_defines.h"
 
 struct tripoint;
 
@@ -16,22 +19,41 @@ std::string gunmod_location::name() const
     return _( _id );
 }
 
+namespace io
+{
+template<>
+std::string enum_to_string<condition_type>( condition_type data )
+{
+    switch( data ) {
+        case condition_type::FLAG:
+            return "FLAG";
+        case condition_type::COMPONENT_ID:
+            return "COMPONENT_ID";
+        case condition_type::num_condition_types:
+            break;
+    }
+    debugmsg( "Invalid condition_type" );
+    abort();
+}
+} // namespace io
+
 std::string itype::nname( unsigned int quantity ) const
 {
     // Always use singular form for liquids.
     // (Maybe gases too?  There are no gases at the moment)
-    if( phase == LIQUID ) {
+    if( phase == phase_id::LIQUID ) {
         quantity = 1;
     }
-    return ngettext( name.c_str(), name_plural.c_str(), quantity );
+    return name.translated( quantity );
 }
 
 int itype::charges_per_volume( const units::volume &vol ) const
 {
     if( volume == 0_ml ) {
-        return item::INFINITE_CHARGES; // TODO: items should not have 0 volume at all!
+        // TODO: items should not have 0 volume at all!
+        return item::INFINITE_CHARGES;
     }
-    return ( stackable ? stack_size : 1 ) * vol / volume;
+    return ( count_by_charges() ? stack_size : 1 ) * vol / volume;
 }
 
 // Members of iuse struct, which is slowly morphing into a class.
@@ -98,4 +120,21 @@ int itype::invoke( player &p, item &it, const tripoint &pos, const std::string &
 std::string gun_type_type::name() const
 {
     return pgettext( "gun_type_type", name_.c_str() );
+}
+
+bool itype::can_have_charges() const
+{
+    if( count_by_charges() ) {
+        return true;
+    }
+    if( tool && tool->max_charges > 0 ) {
+        return true;
+    }
+    if( gun && gun->clip > 0 ) {
+        return true;
+    }
+    if( item_tags.count( "CAN_HAVE_CHARGES" ) ) {
+        return true;
+    }
+    return false;
 }

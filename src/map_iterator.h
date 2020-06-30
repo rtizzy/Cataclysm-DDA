@@ -1,6 +1,6 @@
 #pragma once
-#ifndef MAP_ITERATOR_H
-#define MAP_ITERATOR_H
+#ifndef CATA_SRC_MAP_ITERATOR_H
+#define CATA_SRC_MAP_ITERATOR_H
 
 #include <cstddef>
 
@@ -89,7 +89,7 @@ class tripoint_range
         point_generator end() const {
             // Return the point AFTER the last one
             // That is, point under (in z-levels) the first one, but one z-level below the last one
-            return point_generator( tripoint( minp.x, minp.y, maxp.z + 1 ), *this );
+            return point_generator( tripoint( minp.xy(), maxp.z + 1 ), *this );
         }
 
         size_t size() const {
@@ -118,4 +118,11 @@ class tripoint_range
         }
 };
 
-#endif
+inline tripoint_range points_in_radius( const tripoint &center, const int radius,
+                                        const int radiusz = 0 )
+{
+    const tripoint offset( radius, radius, radiusz );
+    return tripoint_range( center - offset, center + offset );
+}
+
+#endif // CATA_SRC_MAP_ITERATOR_H

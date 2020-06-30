@@ -15,6 +15,7 @@
 #include <utility>
 
 #include "debug.h"
+#include "cata_utility.h"
 
 #if defined(_MSC_VER)
 #   include <direct.h>
@@ -29,25 +30,12 @@
 #   include "platform_win.h"
 #endif
 
-//--------------------------------------------------------------------------------------------------
-// HACK: mingw only issue as of 14/01/2015
-// TODO: move elsewhere
-//--------------------------------------------------------------------------------------------------
-#if defined(__MINGW32__) || defined(__CYGWIN__)
-size_t strnlen( const char *const start, const size_t maxlen )
-{
-    const auto end = reinterpret_cast<const char *>( memchr( start, '\0', maxlen ) );
-    return ( end ) ? static_cast<size_t>( end - start ) : maxlen;
-}
-#endif
-
 namespace
 {
 
 #if defined(_WIN32)
-bool do_mkdir( const std::string &path, const int mode )
+bool do_mkdir( const std::string &path, const int /*mode*/ )
 {
-    ( void )mode; //not used on windows
 #if defined(_MSC_VER)
     return _mkdir( path.c_str() ) == 0;
 #else
@@ -128,6 +116,7 @@ bool remove_directory( const std::string &path )
 const char *cata_files::eol()
 {
 #if defined(_WIN32)
+    // NOLINTNEXTLINE(cata-text-style): carriage return is necessary here
     static const char local_eol[] = "\r\n";
 #else
     static const char local_eol[] = "\n";
@@ -202,6 +191,7 @@ bool is_directory_stat( const std::string &full_path )
     }
 
     if( S_ISDIR( result.st_mode ) ) {
+        // NOLINTNEXTLINE(readability-simplify-boolean-expr)
         return true;
     }
 
@@ -218,10 +208,9 @@ bool is_directory_stat( const std::string &full_path )
 // Returns true if entry is a directory, false otherwise.
 //--------------------------------------------------------------------------------------------------
 #if defined(__MINGW32__)
-bool is_directory( const dirent &entry, const std::string &full_path )
+bool is_directory( const dirent &/*entry*/, const std::string &full_path )
 {
     // no dirent::d_type
-    ( void )entry; //not used for mingw
     return is_directory_stat( full_path );
 }
 #else
@@ -260,15 +249,15 @@ bool is_special_dir( const dirent &entry )
 //--------------------------------------------------------------------------------------------------
 bool name_contains( const dirent &entry, const std::string &match, const bool at_end )
 {
-    const auto len_fname = strnlen( entry.d_name, sizeof_array( entry.d_name ) );
-    const auto len_match = match.length();
+    const size_t len_fname = strlen( entry.d_name );
+    const size_t len_match = match.length();
 
     if( len_match > len_fname ) {
         return false;
     }
 
-    const auto offset = at_end ? ( len_fname - len_match ) : 0;
-    return strstr( entry.d_name + offset, match.c_str() ) != 0;
+    const size_t offset = at_end ? ( len_fname - len_match ) : 0;
+    return strstr( entry.d_name + offset, match.c_str() ) != nullptr;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -326,7 +315,9 @@ std::vector<std::string> find_file_if_bfs( const std::string &root_path,
 
         // Keep files and directories to recurse ordered consistently
         // by sorting from the old end to the new end.
+        // NOLINTNEXTLINE(cata-use-localized-sorting)
         std::sort( std::begin( directories ) + n_dirs,    std::end( directories ) );
+        // NOLINTNEXTLINE(cata-use-localized-sorting)
         std::sort( std::begin( results )     + n_results, std::end( results ) );
     }
 
@@ -409,12 +400,12 @@ std::vector<std::string> get_directories_with( const std::vector<std::string> &p
 bool copy_file( const std::string &source_path, const std::string &dest_path )
 {
     std::ifstream source_stream( source_path.c_str(), std::ifstream::in | std::ifstream::binary );
-    std::ofstream dest_stream( dest_path.c_str(), std::ofstream::out | std::ofstream::binary );
-
-    dest_stream << source_stream.rdbuf();
-    dest_stream.close();
-
-    return dest_stream && source_stream;
+    if( !source_stream ) {
+        return false;
+    }
+    return write_to_file( dest_path, [&]( std::ostream & dest_stream ) {
+        dest_stream << source_stream.rdbuf();
+    }, nullptr ) &&source_stream;
 }
 
 std::string ensure_valid_file_name( const std::string &file_name )

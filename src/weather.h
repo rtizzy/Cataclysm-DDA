@@ -1,6 +1,6 @@
 #pragma once
-#ifndef WEATHER_H
-#define WEATHER_H
+#ifndef CATA_SRC_WEATHER_H
+#define CATA_SRC_WEATHER_H
 
 #include "color.h"
 #include "optional.h"
@@ -19,13 +19,20 @@
  * Maximum heat cannot pass 15000u, otherwise the player will vomit to death.
  */
 ///@{
-#define BODYTEMP_FREEZING 500   //!< More aggressive cold effects.
-#define BODYTEMP_VERY_COLD 2000 //!< This value means frostbite occurs at the warmest temperature of 1C. If changed, the temp_conv calculation should be reexamined.
-#define BODYTEMP_COLD 3500      //!< Frostbite timer will not improve while below this point.
-#define BODYTEMP_NORM 5000      //!< Do not change this value, it is an arbitrary anchor on which other calculations are made.
-#define BODYTEMP_HOT 6500       //!< Level 1 hotness.
-#define BODYTEMP_VERY_HOT 8000  //!< Level 2 hotness.
-#define BODYTEMP_SCORCHING 9500 //!< Level 3 hotness.
+//!< More aggressive cold effects.
+static constexpr int BODYTEMP_FREEZING = 500;
+//!< This value means frostbite occurs at the warmest temperature of 1C. If changed, the temp_conv calculation should be reexamined.
+static constexpr int BODYTEMP_VERY_COLD = 2000;
+//!< Frostbite timer will not improve while below this point.
+static constexpr int BODYTEMP_COLD = 3500;
+//!< Do not change this value, it is an arbitrary anchor on which other calculations are made.
+static constexpr int BODYTEMP_NORM = 5000;
+//!< Level 1 hotness.
+static constexpr int BODYTEMP_HOT = 6500;
+//!< Level 2 hotness.
+static constexpr int BODYTEMP_VERY_HOT = 8000;
+//!< Level 3 hotness.
+static constexpr int BODYTEMP_SCORCHING = 9500;
 ///@}
 
 #include <string>
@@ -45,6 +52,7 @@ enum weather_type : int {
     WEATHER_CLEAR,        //!< No effects
     WEATHER_SUNNY,        //!< Glare if no eye protection
     WEATHER_CLOUDY,       //!< No effects
+    WEATHER_LIGHT_DRIZZLE,//!< very Light rain
     WEATHER_DRIZZLE,      //!< Light rain
     WEATHER_RAINY,        //!< Lots of rain, sight penalties
     WEATHER_THUNDER,      //!< Warns of lightning to come
@@ -56,6 +64,16 @@ enum weather_type : int {
     WEATHER_SNOWSTORM,    //!< sight penalties
     NUM_WEATHER_TYPES     //!< Sentinel value
 };
+
+enum class precip_class : int {
+    NONE,
+    VERY_LIGHT,
+    LIGHT,
+    HEAVY
+};
+
+double precip_mm_per_hour( precip_class p );
+void do_rain( weather_type w );
 
 /**
  * Weather animation class.
@@ -77,14 +95,14 @@ weather_animation_t get_weather_animation( weather_type type );
  * @see game::get_player_input
  */
 struct weather_printable {
-    weather_type wtype; //!< Weather type in use.
-    std::vector<std::pair<int, int> > vdrops; //!< Coordinates targeted for droplets.
-    nc_color colGlyph; //!< Color to draw glyph this animation frame.
-    char cGlyph; //!< Glyph to draw this animation frame.
-    int startx;
-    int starty;
-    int endx;
-    int endy;
+    //!< Weather type in use.
+    weather_type wtype;
+    //!< Coordinates targeted for droplets.
+    std::vector<std::pair<int, int> > vdrops;
+    //!< Color to draw glyph this animation frame.
+    nc_color colGlyph;
+    //!< Glyph to draw this animation frame.
+    char cGlyph;
 };
 
 /**
@@ -93,18 +111,23 @@ struct weather_printable {
  */
 namespace weather_effect
 {
-void none();        //!< Fallback weather.
-void glare( bool );
-void wet();
-void very_wet();
+
+enum class sun_intensity : int {
+    normal = 1,
+    high
+};
+
+//!< Fallback weather.
+void none();
+void glare( sun_intensity );
 void thunder();
 void lightning();
 void light_acid();
 void acid();
-void flurry();      //!< Currently flurries have no additional effects.
+//!< Currently flurries have no additional effects.
+void flurry();
 void snow();
 void sunny();
-void snow_glare();
 void snowstorm();
 } //namespace weather_effect
 
@@ -120,6 +143,9 @@ struct weather_datum {
     int light_modifier;           //!< Modification to ambient light.
     int sound_attn;               //!< Sound attenuation of a given weather type.
     bool dangerous;               //!< If true, our activity gets interrupted.
+    precip_class precip;          //!< Amount of associated precipitation.
+    bool rains;                   //!< Whether said precipitation falls as rain.
+    bool acidic;                  //!< Whether said precipitation is acidic.
     weather_effect_fn effect;     //!< Function pointer for weather effects.
 };
 
@@ -130,19 +156,22 @@ struct weather_sum {
     int wind_amount = 0;
 };
 
-weather_datum const weather_data( weather_type const type );
+weather_datum weather_data( weather_type type );
 namespace weather
 {
-std::string name( weather_type const type );
-nc_color color( weather_type const type );
-nc_color map_color( weather_type const type );
-char glyph( weather_type const type );
-int ranged_penalty( weather_type const type );
-float sight_penalty( weather_type const type );
-int light_modifier( weather_type const type );
-int sound_attn( weather_type const type );
-bool dangerous( weather_type const type );
-weather_effect_fn effect( weather_type const type );
+std::string name( weather_type type );
+nc_color color( weather_type type );
+nc_color map_color( weather_type type );
+char glyph( weather_type type );
+int ranged_penalty( weather_type type );
+float sight_penalty( weather_type type );
+int light_modifier( weather_type type );
+int sound_attn( weather_type type );
+bool dangerous( weather_type type );
+precip_class precip( weather_type type );
+bool rains( weather_type type );
+bool acidic( weather_type type );
+weather_effect_fn effect( weather_type type );
 } // namespace weather
 
 std::string get_shortdirstring( int angle );
@@ -161,7 +190,9 @@ std::string print_temperature( double fahrenheit, int decimals = 0 );
 std::string print_humidity( double humidity, int decimals = 0 );
 std::string print_pressure( double pressure, int decimals = 0 );
 
-int get_local_windchill( double temperature, double humidity, double windpower );
+// Return windchill offset in degrees F, starting from given temperature, humidity and wind
+int get_local_windchill( double temperature_f, double humidity, double wind_mph );
+
 int get_local_humidity( double humidity, weather_type weather, bool sheltered = false );
 double get_local_windpower( double windpower, const oter_id &omter, const tripoint &location,
                             const int &winddirection,
@@ -181,7 +212,7 @@ void retroactively_fill_from_funnel( item &it, const trap &tr, const time_point 
 
 double funnel_charges_per_turn( double surface_area_mm2, double rain_depth_mm_per_hour );
 
-rl_vec2d convert_wind_to_coord( const int angle );
+rl_vec2d convert_wind_to_coord( int angle );
 
 std::string get_wind_arrow( int );
 
@@ -191,7 +222,7 @@ nc_color get_wind_color( double );
 /**
 * Calculates rot per hour at given temperature. Reference in weather_data.cpp
 */
-int get_hourly_rotpoints_at_temp( const int temp );
+int get_hourly_rotpoints_at_temp( int temp );
 
 /**
  * Is it warm enough to plant seeds?
@@ -199,6 +230,16 @@ int get_hourly_rotpoints_at_temp( const int temp );
 bool warm_enough_to_plant( const tripoint &pos );
 
 bool is_wind_blocker( const tripoint &location );
+
+weather_type current_weather( const tripoint &location,
+                              const time_point &t = calendar::turn );
+
+/**
+ * Amount of sunlight incident at the ground, taking weather and time of day
+ * into account.
+ */
+int incident_sunlight( weather_type wtype,
+                       const time_point &t = calendar::turn );
 
 class weather_manager
 {
@@ -208,12 +249,12 @@ class weather_manager
         // Updates the temperature and weather patten
         void update_weather();
         // The air temperature
-        int temperature;
-        bool lightning_active;
+        int temperature = 0;
+        bool lightning_active = false;
         // Weather pattern
-        weather_type weather;
-        int winddirection;
-        int windspeed;
+        weather_type weather = weather_type::WEATHER_NULL;
+        int winddirection = 0;
+        int windspeed = 0;
         // Cached weather data
         pimpl<w_point> weather_precise;
         cata::optional<int> wind_direction_override;
@@ -230,4 +271,6 @@ class weather_manager
         void clear_temp_cache();
 };
 
-#endif
+weather_manager &get_weather();
+
+#endif // CATA_SRC_WEATHER_H

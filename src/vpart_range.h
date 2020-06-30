@@ -1,6 +1,6 @@
 #pragma once
-#ifndef VPART_RANGE_H
-#define VPART_RANGE_H
+#ifndef CATA_SRC_VPART_RANGE_H
+#define CATA_SRC_VPART_RANGE_H
 
 #include <cassert>
 #include <functional>
@@ -108,7 +108,7 @@ class generic_vehicle_part_range
         // Templated because see top of file.
         template<typename T = ::vehicle>
         size_t part_count() const {
-            return static_cast<const T &>( vehicle_.get() ).parts.size();
+            return static_cast<const T &>( vehicle_.get() ).part_count();
         }
 
         using iterator = vehicle_part_iterator<range_type>;
@@ -163,7 +163,7 @@ class vehicle_part_with_feature_range : public
             generic_vehicle_part_range<vehicle_part_with_feature_range<feature_type>>( v ),
                     feature_( std::move( f ) ), required_( r ) { }
 
-        bool matches( const size_t part ) const;
+        bool matches( size_t part ) const;
 };
 
-#endif
+#endif // CATA_SRC_VPART_RANGE_H

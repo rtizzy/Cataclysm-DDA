@@ -9,16 +9,15 @@
     "attitude": 0,
     "mission": 7,
     "chat": "TALK_REFUGEE_Stan_1",
-    "mission_offered": "MISSION_REFUGEE_Stan_1",
     "faction": "free_merchants"
   },
   {
     "type": "npc_class",
     "id": "NC_REFUGEE_Stan",
-    "name": "Refugee",
+    "name": { "str": "Refugee" },
     "job_description": "I'm just trying to survive.",
     "common": false,
-    "//": "Stan is a broken man since he and Boris lost their son in the cataclysm.  It might be possible to help put him back together slowly.",
+    "//": "Stan is a broken man since he and Boris lost their son in the Cataclysm.  It might be possible to help put him back together slowly.",
     "bonus_str": { "rng": [ -2, 2 ] },
     "bonus_dex": { "rng": [ -2, 2 ] },
     "bonus_int": { "rng": [ -2, 2 ] },
@@ -40,7 +39,7 @@
     "entries": [
       { "item": "briefs" },
       { "item": "socks" },
-      { "item": "skinny_tie" },
+      { "item": "tie_skinny" },
       { "item": "dress_shirt" },
       { "item": "pants" },
       { "item": "blazer" },
@@ -77,8 +76,8 @@
       "type": "general",
       "context": "meeting",
       "value": "yes",
-      "yes": [ "Hi.", "Hello.", "Hm?  Oh, hi.", "...Hi." ],
-      "no": "Hello.  I'm sorry, if we've met before, I don't really remember.  I'm... I'm Stan."
+      "yes": [ "Hi.", "Hello.", "Hm?  Oh, hi.", "…Hi." ],
+      "no": "Hello.  I'm sorry, if we've met before, I don't really remember.  I'm… I'm Stan."
     },
     "responses": [
       {

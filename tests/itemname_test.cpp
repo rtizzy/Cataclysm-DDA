@@ -3,27 +3,28 @@
 
 #include "avatar.h"
 #include "catch/catch.hpp"
+#include "player_helpers.h"
+#include "flat_set.h"
 #include "game.h"
 #include "item.h"
-#include "flat_set.h"
 #include "type_id.h"
 
-TEST_CASE( "item_name_check", "[item][iteminfo]" )
+TEST_CASE( "item sizing display", "[item][iteminfo][display_name][sizing]" )
 {
     GIVEN( "player is a normal size" ) {
-        g->u.empty_traits();
+        g->u.clear_mutations();
 
         WHEN( "the item is a normal size" ) {
             std::string name = item( "bookplate" ).display_name();
             THEN( "the item name has no qualifier" ) {
-                CHECK( name == "<color_c_light_green>|| </color>bookplate" );
+                CHECK( name == "<color_c_light_green>||\u00A0</color>bookplate" );
             }
         }
 
         WHEN( "the item is oversized" ) {
             std::string name = item( "bootsheath" ).display_name();
             THEN( "the item name has no qualifier" ) {
-                CHECK( name == "<color_c_light_green>|| </color>ankle sheath" );
+                CHECK( name == "<color_c_light_green>||\u00A0</color>ankle sheath" );
             }
         }
 
@@ -39,27 +40,27 @@ TEST_CASE( "item_name_check", "[item][iteminfo]" )
             }
 
             THEN( "the item name says its too small" ) {
-                CHECK( name == "<color_c_light_green>|| </color>tunic (too small)" );
+                CHECK( name == "<color_c_light_green>||\u00A0</color>tunic (too small)" );
             }
         }
 
     }
 
     GIVEN( "player is a huge size" ) {
-        g->u.empty_traits();
+        g->u.clear_mutations();
         g->u.toggle_trait( trait_id( "HUGE_OK" ) );
 
         WHEN( "the item is a normal size" ) {
             std::string name = item( "bookplate" ).display_name();
             THEN( "the item name says its too small" ) {
-                CHECK( name == "<color_c_light_green>|| </color>bookplate (too small)" );
+                CHECK( name == "<color_c_light_green>||\u00A0</color>bookplate (too small)" );
             }
         }
 
         WHEN( "the item is oversized" ) {
             std::string name = item( "bootsheath" ).display_name();
             THEN( "the item name has no qualifier" ) {
-                CHECK( name == "<color_c_light_green>|| </color>ankle sheath" );
+                CHECK( name == "<color_c_light_green>||\u00A0</color>ankle sheath" );
             }
         }
 
@@ -75,27 +76,27 @@ TEST_CASE( "item_name_check", "[item][iteminfo]" )
             }
 
             THEN( "the item name says its tiny" ) {
-                CHECK( name == "<color_c_light_green>|| </color>tunic (tiny!)" );
+                CHECK( name == "<color_c_light_green>||\u00A0</color>tunic (tiny!)" );
             }
         }
 
     }
 
     GIVEN( "player is a small size" ) {
-        g->u.empty_traits();
+        g->u.clear_mutations();
         g->u.toggle_trait( trait_id( "SMALL_OK" ) );
 
         WHEN( "the item is a normal size" ) {
             std::string name = item( "bookplate" ).display_name();
             THEN( "the item name says its too big" ) {
-                CHECK( name == "<color_c_light_green>|| </color>bookplate (too big)" );
+                CHECK( name == "<color_c_light_green>||\u00A0</color>bookplate (too big)" );
             }
         }
 
         WHEN( "the item is oversized" ) {
             std::string name = item( "bootsheath" ).display_name();
             THEN( "the item name has no qualifier" ) {
-                CHECK( name == "<color_c_light_green>|| </color>ankle sheath (huge!)" );
+                CHECK( name == "<color_c_light_green>||\u00A0</color>ankle sheath (huge!)" );
             }
         }
 
@@ -111,9 +112,40 @@ TEST_CASE( "item_name_check", "[item][iteminfo]" )
             }
 
             THEN( "the item name has no qualifier" ) {
-                CHECK( name == "<color_c_light_green>|| </color>tunic" );
+                CHECK( name == "<color_c_light_green>||\u00A0</color>tunic" );
             }
         }
-
     }
 }
+
+TEST_CASE( "display name includes item contents", "[item][display_name][contents]" )
+{
+    clear_avatar();
+
+    item arrow( "test_arrow_wood", 0, item::default_charges_tag{} );
+    // Arrows are ammo with a default count of 10
+    REQUIRE( arrow.is_ammo() );
+    REQUIRE( arrow.count() == 10 );
+
+    item quiver( "test_quiver" );
+    // Quivers are not magazines, nor do they have magazines
+    REQUIRE_FALSE( quiver.is_magazine() );
+    REQUIRE_FALSE( quiver.magazine_current() );
+    // But they do have ammo types and can contain ammo
+    REQUIRE_FALSE( quiver.ammo_types().empty() );
+    REQUIRE( quiver.can_contain( arrow ) );
+
+    // Check empty quiver display
+    CHECK( quiver.display_name() ==
+           "<color_c_light_green>||\u00A0</color>"
+           "test quiver (0)" );
+
+    // Insert one arrow
+    quiver.put_in( arrow, item_pocket::pocket_type::CONTAINER );
+    // Expect 1 arrow remaining and displayed
+    CHECK( quiver.ammo_remaining() == 10 );
+    CHECK( quiver.display_name() ==
+           "<color_c_light_green>||\u00A0</color>"
+           "test quiver with test wooden broadhead arrow (10)" );
+}
+

@@ -1,13 +1,14 @@
 #pragma once
-#ifndef ACTIVE_ITEM_CACHE_H
-#define ACTIVE_ITEM_CACHE_H
+#ifndef CATA_SRC_ACTIVE_ITEM_CACHE_H
+#define CATA_SRC_ACTIVE_ITEM_CACHE_H
 
+#include <iosfwd>
 #include <list>
 #include <unordered_map>
 #include <vector>
 
-#include "safe_reference.h"
 #include "point.h"
+#include "safe_reference.h"
 
 class item;
 
@@ -17,10 +18,27 @@ struct item_reference {
     safe_reference<item> item_ref;
 };
 
+enum class special_item_type : int {
+    none,
+    corpse,
+    explosive
+};
+
+namespace std
+{
+template <>
+struct hash<special_item_type> {
+    std::size_t operator()( const special_item_type &k ) const noexcept {
+        return static_cast<size_t>( k );
+    }
+};
+} // namespace std
+
 class active_item_cache
 {
     private:
         std::unordered_map<int, std::list<item_reference>> active_items;
+        std::unordered_map<special_item_type, std::list<item_reference>> special_items;
 
     public:
         /**
@@ -57,9 +75,13 @@ class active_item_cache
          */
         std::vector<item_reference> get_for_processing();
 
+        /**
+         * Returns the currently tracked list of special active items.
+         */
+        std::vector<item_reference> get_special( special_item_type type );
         /** Subtract delta from every item_reference's location */
         void subtract_locations( const point &delta );
         void rotate_locations( int turns, const point &dim );
 };
 
-#endif
+#endif // CATA_SRC_ACTIVE_ITEM_CACHE_H

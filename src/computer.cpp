@@ -1,71 +1,17 @@
 #include "computer.h"
 
-#include <climits>
-#include <cstdlib>
 #include <algorithm>
-#include <sstream>
-#include <string>
-#include <list>
+#include <cstdlib>
 #include <locale>
-#include <map>
-#include <memory>
-#include <utility>
+#include <sstream>
 
-#include "avatar.h"
-#include "coordinate_conversions.h"
 #include "debug.h"
-#include "explosion.h"
-#include "event.h"
-#include "field.h"
-#include "game.h"
-#include "input.h"
-#include "item_factory.h"
+#include "enum_conversions.h"
 #include "json.h"
-#include "line.h"
-#include "map.h"
-#include "map_iterator.h"
-#include "mapdata.h"
-#include "messages.h"
-#include "mission.h"
-#include "monster.h"
-#include "mtype.h"
 #include "output.h"
-#include "overmap.h"
-#include "overmap_ui.h"
-#include "overmapbuffer.h"
-#include "player.h"
-#include "rng.h"
-#include "sounds.h"
-#include "string_formatter.h"
-#include "text_snippets.h"
 #include "translations.h"
-#include "trap.h"
-#include "color.h"
-#include "creature.h"
-#include "enums.h"
-#include "game_constants.h"
-#include "int_id.h"
-#include "item.h"
-#include "omdata.h"
-#include "string_id.h"
-#include "type_id.h"
-#include "basecamp.h"
-#include "colony.h"
-#include "point.h"
 
-const mtype_id mon_manhack( "mon_manhack" );
-const mtype_id mon_secubot( "mon_secubot" );
-const mtype_id mon_turret( "mon_turret" );
-const mtype_id mon_turret_rifle( "mon_turret_rifle" );
-
-const skill_id skill_computer( "computer" );
-
-const species_id ZOMBIE( "ZOMBIE" );
-const species_id HUMAN( "HUMAN" );
-
-const efftype_id effect_amigara( "amigara" );
-
-int alerts = 0;
+template <typename E> struct enum_traits;
 
 computer_option::computer_option()
     : name( "Unknown" ), action( COMPACT_NULL ), security( 0 )
@@ -77,29 +23,48 @@ computer_option::computer_option( const std::string &N, computer_action A, int S
 {
 }
 
-computer::computer( const std::string &new_name, int new_security ): name( new_name )
+void computer_option::serialize( JsonOut &jout ) const
 {
-    security = new_security;
-    mission_id = -1;
+    jout.start_object();
+    jout.member( "name", name );
+    jout.member( "action" );
+    jout.write_as_string( action );
+    jout.member( "security", security );
+    jout.end_object();
 }
 
-computer::computer( const computer &rhs )
+void computer_option::deserialize( JsonIn &jin )
 {
-    *this = rhs;
+    const JsonObject jo = jin.get_object();
+    name = jo.get_string( "name" );
+    action = jo.get_enum_value<computer_action>( "action" );
+    security = jo.get_int( "security" );
 }
 
-computer::~computer() = default;
-
-computer &computer::operator=( const computer &rhs )
+computer_failure::computer_failure()
+    : type( COMPFAIL_NULL )
 {
-    security = rhs.security;
-    name = rhs.name;
-    mission_id = rhs.mission_id;
-    options = rhs.options;
-    failures = rhs.failures;
-    w_terminal = catacurses::window();
-    w_border = catacurses::window();
-    return *this;
+}
+
+void computer_failure::serialize( JsonOut &jout ) const
+{
+    jout.start_object();
+    jout.member( "action" );
+    jout.write_as_string( type );
+    jout.end_object();
+}
+
+void computer_failure::deserialize( JsonIn &jin )
+{
+    const JsonObject jo = jin.get_object();
+    type = jo.get_enum_value<computer_failure_type>( "action" );
+}
+
+computer::computer( const std::string &new_name, int new_security )
+    : name( new_name ), mission_id( -1 ), security( new_security ), alerts( 0 ),
+      next_attempt( calendar::before_time_starts ),
+      access_denied( _( "ERROR!  Access denied!" ) )
+{
 }
 
 void computer::set_security( int Security )
@@ -128,188 +93,20 @@ void computer::add_failure( computer_failure_type failure )
     add_failure( computer_failure( failure ) );
 }
 
-void computer::shutdown_terminal()
+void computer::set_access_denied_msg( const std::string &new_msg )
 {
-    // So yeah, you can reset the term by logging off.
-    // Otherwise, it's persistent across all terms.
-    // Decided to go easy on people for now.
-    alerts = 0;
-    werase( w_terminal );
-    w_terminal = catacurses::window();
-    werase( w_border );
-    w_border = catacurses::window();
+    access_denied = new_msg;
 }
 
-void computer::use()
+void computer::set_mission( const int id )
 {
-    if( !w_border ) {
-        w_border = catacurses::newwin( FULL_SCREEN_HEIGHT, FULL_SCREEN_WIDTH,
-                                       ( TERMY > FULL_SCREEN_HEIGHT ) ? ( TERMY - FULL_SCREEN_HEIGHT ) / 2 : 0,
-                                       ( TERMX > FULL_SCREEN_WIDTH ) ? ( TERMX - FULL_SCREEN_WIDTH ) / 2 : 0 );
-    }
-    if( !w_terminal ) {
-        w_terminal = catacurses::newwin( getmaxy( w_border ) - 2, getmaxx( w_border ) - 2,
-                                         getbegy( w_border ) + 1, getbegx( w_border ) + 1 );
-    }
-    draw_border( w_border );
-    wrefresh( w_border );
-
-    // Login
-    print_line( _( "Logging into %s..." ), _( name ) );
-    if( security > 0 ) {
-        if( calendar::turn < next_attempt ) {
-            print_error( _( "Access is temporary blocked for security purposes." ) );
-            query_any( _( "Please contact the system administrator." ) );
-            reset_terminal();
-            return;
-        }
-        print_error( _( "ERROR!  Access denied!" ) );
-        switch( query_ynq( _( "Bypass security?" ) ) ) {
-            case 'q':
-            case 'Q':
-                shutdown_terminal();
-                return;
-
-            case 'n':
-            case 'N':
-                query_any( _( "Shutting down... press any key." ) );
-                shutdown_terminal();
-                return;
-
-            case 'y':
-            case 'Y':
-                if( !hack_attempt( g->u ) ) {
-                    if( failures.empty() ) {
-                        query_any( _( "Maximum login attempts exceeded. Press any key..." ) );
-                        shutdown_terminal();
-                        return;
-                    }
-                    activate_random_failure();
-                    shutdown_terminal();
-                    return;
-                } else { // Successful hack attempt
-                    security = 0;
-                    query_any( _( "Login successful.  Press any key..." ) );
-                    reset_terminal();
-                }
-        }
-    } else { // No security
-        query_any( _( "Login successful.  Press any key..." ) );
-        reset_terminal();
-    }
-
-    // Main computer loop
-    while( true ) {
-        //reset_terminal();
-        size_t options_size = options.size();
-        print_newline();
-        print_line( "%s - %s", _( name ), _( "Root Menu" ) );
-#if defined(__ANDROID__)
-        input_context ctxt( "COMPUTER_MAINLOOP" );
-#endif
-        for( size_t i = 0; i < options_size; i++ ) {
-            print_line( "%d - %s", i + 1, _( options[i].name ) );
-#if defined(__ANDROID__)
-            ctxt.register_manual_key( '1' + i, options[i].name );
-#endif
-        }
-        print_line( "Q - %s", _( "Quit and Shut Down" ) );
-        print_newline();
-#if defined(__ANDROID__)
-        ctxt.register_manual_key( 'Q', _( "Quit and Shut Down" ) );
-#endif
-        char ch;
-        do {
-            // TODO: use input context
-            ch = inp_mngr.get_input_event().get_first_input();
-        } while( ch != 'q' && ch != 'Q' && ( ch < '1' || ch - '1' >= static_cast<char>( options_size ) ) );
-        if( ch == 'q' || ch == 'Q' ) {
-            break; // Exit from main computer loop
-        } else { // We selected an option other than quit.
-            ch -= '1'; // So '1' -> 0; index in options.size()
-            computer_option current = options[ch];
-            // Once you trip the security, you have to roll every time you want to do something
-            if( ( current.security + ( alerts ) ) > 0 ) {
-                print_error( _( "Password required." ) );
-                if( query_bool( _( "Hack into system?" ) ) ) {
-                    if( !hack_attempt( g->u, current.security ) ) {
-                        activate_random_failure();
-                        shutdown_terminal();
-                        return;
-                    } else {
-                        // Successfully hacked function
-                        options[ch].security = 0;
-                        activate_function( current.action );
-                    }
-                }
-            } else { // No need to hack, just activate
-                activate_function( current.action );
-            }
-            reset_terminal();
-        } // Done processing a selected option.
-    }
-
-    shutdown_terminal(); // This should have been done by now, but just in case.
+    mission_id = id;
 }
 
-bool computer::hack_attempt( player &p, int Security )
-{
-    if( Security == -1 ) {
-        Security = security;    // Set to main system security if no value passed
-    }
-    const int hack_skill = p.get_skill_level( skill_computer );
+static computer_action computer_action_from_legacy_enum( int val );
+static computer_failure_type computer_failure_type_from_legacy_enum( int val );
 
-    // Every time you dig for lab notes, (or, in future, do other suspicious stuff?)
-    // +2 dice to the system's hack-resistance
-    // So practical max files from a given terminal = 5, at 10 Computer
-    if( alerts > 0 ) {
-        Security += ( alerts * 2 );
-    }
-
-    p.moves -= 10 * ( 5 + Security * 2 ) / std::max( 1, hack_skill + 1 );
-    int player_roll = hack_skill;
-    ///\EFFECT_INT <8 randomly penalizes hack attempts, 50% of the time
-    if( p.int_cur < 8 && one_in( 2 ) ) {
-        player_roll -= rng( 0, 8 - p.int_cur );
-        ///\EFFECT_INT >8 randomly benefits hack attempts, 33% of the time
-    } else if( p.int_cur > 8 && one_in( 3 ) ) {
-        player_roll += rng( 0, p.int_cur - 8 );
-    }
-
-    ///\EFFECT_COMPUTER increases chance of successful hack attempt, vs Security level
-    bool successful_attempt = ( dice( player_roll, 6 ) >= dice( Security, 6 ) );
-    p.practice( skill_computer, successful_attempt ? ( 15 + Security * 3 ) : 7 );
-    return successful_attempt;
-}
-
-std::string computer::save_data() const
-{
-    std::ostringstream data;
-
-    data.imbue( std::locale::classic() );
-
-    data
-            << string_replace( name, " ", "_" ) << ' '
-            << security << ' '
-            << mission_id << ' '
-            << options.size() << ' ';
-
-    for( auto &elem : options ) {
-        data
-                << string_replace( elem.name, " ", "_" ) << ' '
-                << static_cast<int>( elem.action ) << ' '
-                << elem.security << ' ';
-    }
-
-    data << failures.size() << ' ';
-    for( auto &elem : failures ) {
-        data << static_cast<int>( elem.type ) << ' ';
-    }
-
-    return data.str();
-}
-
-void computer::load_data( const std::string &data )
+void computer::load_legacy_data( const std::string &data )
 {
     options.clear();
     failures.clear();
@@ -331,8 +128,14 @@ void computer::load_data( const std::string &data )
         int tmpsec;
 
         dump >> tmpname >> tmpaction >> tmpsec;
-
-        add_option( string_replace( tmpname, "_", " " ), computer_action( tmpaction ), tmpsec );
+        // Legacy missle launch option that got removed before `computer_action` was
+        // refactored to be saved and loaded as string ids. Do not change this number:
+        // `computer_action` now has different underlying values from back then!
+        if( tmpaction == 15 ) {
+            continue;
+        }
+        add_option( string_replace( tmpname, "_", " " ), computer_action_from_legacy_enum( tmpaction ),
+                    tmpsec );
     }
 
     // Pull in failures
@@ -341,32 +144,21 @@ void computer::load_data( const std::string &data )
     for( int n = 0; n < failsize; n++ ) {
         int tmpfail;
         dump >> tmpfail;
-        add_failure( computer_failure_type( tmpfail ) );
+        add_failure( computer_failure_type_from_legacy_enum( tmpfail ) );
+    }
+
+    std::string tmp_access_denied;
+    dump >> tmp_access_denied;
+
+    // For backwards compatibility, only set the access denied message if it
+    // isn't empty. This is to avoid the message becoming blank when people
+    // load old saves.
+    if( !tmp_access_denied.empty() ) {
+        access_denied = string_replace( tmp_access_denied, "_", " " );
     }
 }
 
-static item *pick_usb()
-{
-    const int pos = g->inv_for_id( itype_id( "usb_drive" ), _( "Choose drive:" ) );
-    if( pos != INT_MIN ) {
-        return &g->u.i_at( pos );
-    }
-    return nullptr;
-}
-
-static void remove_submap_turrets()
-{
-    for( monster &critter : g->all_monsters() ) {
-        // Check 1) same overmap coords, 2) turret, 3) hostile
-        if( ms_to_omt_copy( g->m.getabs( critter.pos() ) ) == ms_to_omt_copy( g->m.getabs( g->u.pos() ) ) &&
-            ( critter.type->id == mon_turret ||
-              critter.type->id == mon_turret_rifle ) &&
-            critter.attitude_to( g->u ) == Creature::Attitude::A_HOSTILE ) {
-            g->remove_zombie( critter );
-        }
-    }
-}
-
+<<<<<<< HEAD
 void computer::activate_function( computer_action action )
 {
     // Token move cost for any action, if an action takes longer decrement moves further.
@@ -1663,6 +1455,37 @@ void computer::activate_failure( computer_failure_type fail )
             break;
 
     }// switch (fail)
+=======
+void computer::serialize( JsonOut &jout ) const
+{
+    jout.start_object();
+    jout.member( "name", name );
+    jout.member( "mission", mission_id );
+    jout.member( "security", security );
+    jout.member( "alerts", alerts );
+    jout.member( "next_attempt", next_attempt );
+    jout.member( "options", options );
+    jout.member( "failures", failures );
+    jout.member( "access_denied", access_denied );
+    jout.end_object();
+}
+
+void computer::deserialize( JsonIn &jin )
+{
+    if( jin.test_string() ) {
+        load_legacy_data( jin.get_string() );
+    } else {
+        const JsonObject jo = jin.get_object();
+        jo.read( "name", name );
+        jo.read( "mission", mission_id );
+        jo.read( "security", security );
+        jo.read( "alerts", alerts );
+        jo.read( "next_attempt", next_attempt );
+        jo.read( "options", options );
+        jo.read( "failures", failures );
+        jo.read( "access_denied", access_denied );
+    }
+>>>>>>> upstream/master
 }
 
 void computer::remove_option( computer_action const action )
@@ -1675,262 +1498,197 @@ void computer::remove_option( computer_action const action )
     }
 }
 
-void computer::mark_refugee_center()
+static computer_action computer_action_from_legacy_enum( const int val )
 {
-    print_line( _( "\
-SEARCHING FOR NEAREST REFUGEE CENTER, PLEASE WAIT ... " ) );
-
-    const mission_type_id &mission_type = mission_type_id( "MISSION_REACH_REFUGEE_CENTER" );
-    const std::vector<mission *> missions = g->u.get_active_missions();
-    tripoint mission_target;
-
-    const bool has_mission = std::any_of( missions.begin(), missions.end(), [ &mission_type,
-    &mission_target ]( mission * mission ) {
-        if( mission->get_type().id == mission_type ) {
-            mission_target = mission->get_target();
-            return true;
-        }
-
-        return false;
-    } );
-
-    if( !has_mission ) {
-        const auto mission = mission::reserve_new( mission_type, -1 );
-        mission->assign( g->u );
-        mission_target = mission->get_target();
+    switch( val ) {
+        // Used to migrate old saves. Do not change the numbers!
+        // *INDENT-OFF*
+        default: return COMPACT_NULL;
+        case 0: return COMPACT_NULL;
+        case 1: return COMPACT_OPEN;
+        case 2: return COMPACT_LOCK;
+        case 3: return COMPACT_UNLOCK;
+        case 4: return COMPACT_TOLL;
+        case 5: return COMPACT_SAMPLE;
+        case 6: return COMPACT_RELEASE;
+        case 7: return COMPACT_RELEASE_BIONICS;
+        case 8: return COMPACT_TERMINATE;
+        case 9: return COMPACT_PORTAL;
+        case 10: return COMPACT_CASCADE;
+        case 11: return COMPACT_RESEARCH;
+        case 12: return COMPACT_MAPS;
+        case 13: return COMPACT_MAP_SEWER;
+        case 14: return COMPACT_MAP_SUBWAY;
+        // options with action enum 15 are removed in load_legacy_data()
+        case 16: return COMPACT_MISS_DISARM;
+        case 17: return COMPACT_LIST_BIONICS;
+        case 18: return COMPACT_ELEVATOR_ON;
+        case 19: return COMPACT_AMIGARA_LOG;
+        case 20: return COMPACT_AMIGARA_START;
+        case 21: return COMPACT_COMPLETE_DISABLE_EXTERNAL_POWER;
+        case 22: return COMPACT_REPEATER_MOD;
+        case 23: return COMPACT_DOWNLOAD_SOFTWARE;
+        case 24: return COMPACT_BLOOD_ANAL;
+        case 25: return COMPACT_DATA_ANAL;
+        case 26: return COMPACT_DISCONNECT;
+        case 27: return COMPACT_EMERG_MESS;
+        case 28: return COMPACT_EMERG_REF_CENTER;
+        case 29: return COMPACT_TOWER_UNRESPONSIVE;
+        case 30: return COMPACT_SR1_MESS;
+        case 31: return COMPACT_SR2_MESS;
+        case 32: return COMPACT_SR3_MESS;
+        case 33: return COMPACT_SR4_MESS;
+        case 34: return COMPACT_SRCF_1_MESS;
+        case 35: return COMPACT_SRCF_2_MESS;
+        case 36: return COMPACT_SRCF_3_MESS;
+        case 37: return COMPACT_SRCF_SEAL_ORDER;
+        case 38: return COMPACT_SRCF_SEAL;
+        case 39: return COMPACT_SRCF_ELEVATOR;
+        case 40: return COMPACT_OPEN_DISARM;
+        case 41: return COMPACT_UNLOCK_DISARM;
+        case 42: return COMPACT_RELEASE_DISARM;
+        case 43: return COMPACT_IRRADIATOR;
+        case 44: return COMPACT_GEIGER;
+        case 45: return COMPACT_CONVEYOR;
+        case 46: return COMPACT_SHUTTERS;
+        case 47: return COMPACT_EXTRACT_RAD_SOURCE;
+        case 48: return COMPACT_DEACTIVATE_SHOCK_VENT;
+        case 49: return COMPACT_RADIO_ARCHIVE;
+        // *INDENT-ON*
     }
-
-    //~555-0164 is a fake phone number in the US, please replace it with a number that will not cause issues in your locale if possible.
-    print_line( _( "\
-\nREFUGEE CENTER FOUND! LOCATION: %d %s\n\n\
-IF YOU HAVE ANY FEEDBACK CONCERNING YOUR VISIT PLEASE CONTACT \n\
-THE DEPARTMENT OF EMERGENCY MANAGEMENT PUBLIC AFFAIRS OFFICE. \n\
-THE LOCAL OFFICE CAN BE REACHED BETWEEN THE HOURS OF 9AM AND  \n\
-4PM AT 555-0164.                                              \n\
-\n\
-IF YOU WOULD LIKE TO SPEAK WITH SOMEONE IN PERSON OR WOULD LIKE\n\
-TO WRITE US A LETTER PLEASE SEND IT TO...\n" ), rl_dist( g->u.pos(), mission_target ),
-                direction_name_short( direction_from( g->u.pos(), mission_target ) ) );
-
-    query_any( _( "Press any key to continue..." ) );
 }
 
-template<typename ...Args>
-bool computer::query_bool( const char *const text, Args &&... args )
+static computer_failure_type computer_failure_type_from_legacy_enum( const int val )
 {
-    const std::string formatted_text = string_format( text, std::forward<Args>( args )... );
-    print_line( "%s (Y/N/Q)", formatted_text );
-    char ret;
-#if defined(__ANDROID__)
-    input_context ctxt( "COMPUTER_YESNO" );
-    ctxt.register_manual_key( 'Y' );
-    ctxt.register_manual_key( 'N' );
-    ctxt.register_manual_key( 'Q' );
-#endif
-    do {
-        // TODO: use input context
-        ret = inp_mngr.get_input_event().get_first_input();
-    } while( ret != 'y' && ret != 'Y' && ret != 'n' && ret != 'N' && ret != 'q' &&
-             ret != 'Q' );
-    return ( ret == 'y' || ret == 'Y' );
-}
-
-template<typename ...Args>
-bool computer::query_any( const char *const text, Args &&... args )
-{
-    const std::string formatted_text = string_format( text, std::forward<Args>( args )... );
-    print_line( "%s", formatted_text );
-    inp_mngr.wait_for_any_key();
-    return true;
-}
-
-template<typename ...Args>
-char computer::query_ynq( const char *const text, Args &&... args )
-{
-    const std::string formatted_text = string_format( text, std::forward<Args>( args )... );
-    print_line( "%s (Y/N/Q)", formatted_text );
-    char ret;
-#if defined(__ANDROID__)
-    input_context ctxt( "COMPUTER_YESNO" );
-    ctxt.register_manual_key( 'Y' );
-    ctxt.register_manual_key( 'N' );
-    ctxt.register_manual_key( 'Q' );
-#endif
-    do {
-        // TODO: use input context
-        ret = inp_mngr.get_input_event().get_first_input();
-    } while( ret != 'y' && ret != 'Y' && ret != 'n' && ret != 'N' && ret != 'q' &&
-             ret != 'Q' );
-    return ret;
-}
-
-template<typename ...Args>
-void computer::print_line( const char *const text, Args &&... args )
-{
-    const std::string formatted_text = string_format( text, std::forward<Args>( args )... );
-    wprintz( w_terminal, c_green, formatted_text );
-    print_newline();
-    wrefresh( w_terminal );
-}
-
-template<typename ...Args>
-void computer::print_error( const char *const text, Args &&... args )
-{
-    const std::string formatted_text = string_format( text, std::forward<Args>( args )... );
-    wprintz( w_terminal, c_red, formatted_text );
-    print_newline();
-    wrefresh( w_terminal );
-}
-
-template<typename ...Args>
-void computer::print_text( const char *const text, Args &&... args )
-{
-    const std::string formated_text = string_format( text, std::forward<Args>( args )... );
-    int y = getcury( w_terminal );
-    int w = getmaxx( w_terminal ) - 2;
-    fold_and_print( w_terminal, y, 1, w, c_green, formated_text );
-    print_newline();
-    print_newline();
-    wrefresh( w_terminal );
-}
-
-void computer::print_gibberish_line()
-{
-    std::string gibberish;
-    int length = rng( 50, 70 );
-    for( int i = 0; i < length; i++ ) {
-        switch( rng( 0, 4 ) ) {
-            case 0:
-                gibberish += '0' + rng( 0, 9 );
-                break;
-            case 1:
-            case 2:
-                gibberish += 'a' + rng( 0, 25 );
-                break;
-            case 3:
-            case 4:
-                gibberish += 'A' + rng( 0, 25 );
-                break;
-        }
+    switch( val ) {
+        // Used to migrate old saves. Do not change the numbers!
+        // *INDENT-OFF*
+        default: return COMPFAIL_NULL;
+        case 0: return COMPFAIL_NULL;
+        case 1: return COMPFAIL_SHUTDOWN;
+        case 2: return COMPFAIL_ALARM;
+        case 3: return COMPFAIL_MANHACKS;
+        case 4: return COMPFAIL_SECUBOTS;
+        case 5: return COMPFAIL_DAMAGE;
+        case 6: return COMPFAIL_PUMP_EXPLODE;
+        case 7: return COMPFAIL_PUMP_LEAK;
+        case 8: return COMPFAIL_AMIGARA;
+        case 9: return COMPFAIL_DESTROY_BLOOD;
+        case 10: return COMPFAIL_DESTROY_DATA;
+        // *INDENT-ON*
     }
-    wprintz( w_terminal, c_yellow, gibberish );
-    print_newline();
-    wrefresh( w_terminal );
 }
 
-void computer::reset_terminal()
+namespace io
 {
-    werase( w_terminal );
-    wmove( w_terminal, 0, 0 );
-    wrefresh( w_terminal );
+template<>
+std::string enum_to_string<computer_action>( const computer_action act )
+{
+    switch( act ) {
+        // *INDENT-OFF*
+        case COMPACT_NULL: return "null";
+        case COMPACT_AMIGARA_LOG: return "amigara_log";
+        case COMPACT_AMIGARA_START: return "amigara_start";
+        case COMPACT_BLOOD_ANAL: return "blood_anal";
+        case COMPACT_CASCADE: return "cascade";
+        case COMPACT_COMPLETE_DISABLE_EXTERNAL_POWER: return "complete_disable_external_power";
+        case COMPACT_CONVEYOR: return "conveyor";
+        case COMPACT_DATA_ANAL: return "data_anal";
+        case COMPACT_DEACTIVATE_SHOCK_VENT: return "deactivate_shock_vent";
+        case COMPACT_DISCONNECT: return "disconnect";
+        case COMPACT_DOWNLOAD_SOFTWARE: return "download_software";
+        case COMPACT_ELEVATOR_ON: return "elevator_on";
+        case COMPACT_EMERG_MESS: return "emerg_mess";
+        case COMPACT_EMERG_REF_CENTER: return "emerg_ref_center";
+        case COMPACT_EXTRACT_RAD_SOURCE: return "extract_rad_source";
+        case COMPACT_GEIGER: return "geiger";
+        case COMPACT_IRRADIATOR: return "irradiator";
+        case COMPACT_LIST_BIONICS: return "list_bionics";
+        case COMPACT_LOCK: return "lock";
+        case COMPACT_MAP_SEWER: return "map_sewer";
+        case COMPACT_MAP_SUBWAY: return "map_subway";
+        case COMPACT_MAPS: return "maps";
+        case COMPACT_MISS_DISARM: return "miss_disarm";
+        case COMPACT_OPEN: return "open";
+        case COMPACT_OPEN_DISARM: return "open_disarm";
+        case COMPACT_PORTAL: return "portal";
+        case COMPACT_RADIO_ARCHIVE: return "radio_archive";
+        case COMPACT_RELEASE: return "release";
+        case COMPACT_RELEASE_BIONICS: return "release_bionics";
+        case COMPACT_RELEASE_DISARM: return "release_disarm";
+        case COMPACT_REPEATER_MOD: return "repeater_mod";
+        case COMPACT_RESEARCH: return "research";
+        case COMPACT_SAMPLE: return "sample";
+        case COMPACT_SHUTTERS: return "shutters";
+        case COMPACT_SR1_MESS: return "sr1_mess";
+        case COMPACT_SR2_MESS: return "sr2_mess";
+        case COMPACT_SR3_MESS: return "sr3_mess";
+        case COMPACT_SR4_MESS: return "sr4_mess";
+        case COMPACT_SRCF_1_MESS: return "srcf_1_mess";
+        case COMPACT_SRCF_2_MESS: return "srcf_2_mess";
+        case COMPACT_SRCF_3_MESS: return "srcf_3_mess";
+        case COMPACT_SRCF_ELEVATOR: return "srcf_elevator";
+        case COMPACT_SRCF_SEAL: return "srcf_seal";
+        case COMPACT_SRCF_SEAL_ORDER: return "srcf_seal_order";
+        case COMPACT_TERMINATE: return "terminate";
+        case COMPACT_TOLL: return "toll";
+        case COMPACT_TOWER_UNRESPONSIVE: return "tower_unresponsive";
+        case COMPACT_UNLOCK: return "unlock";
+        case COMPACT_UNLOCK_DISARM: return "unlock_disarm";
+        // *INDENT-OFF*
+        case NUM_COMPUTER_ACTIONS:
+            break;
+    }
+    debugmsg( "Invalid computer_action" );
+    abort();
 }
 
-void computer::print_newline()
+template<>
+std::string enum_to_string<computer_failure_type>( const computer_failure_type fail )
 {
-    wprintz( w_terminal, c_green, "\n" );
+    switch( fail ){
+        // *INDENT-OFF*
+        case COMPFAIL_NULL: return "null";
+        case COMPFAIL_ALARM: return "alarm";
+        case COMPFAIL_AMIGARA: return "amigara";
+        case COMPFAIL_DAMAGE: return "damage";
+        case COMPFAIL_DESTROY_BLOOD: return "destroy_blood";
+        case COMPFAIL_DESTROY_DATA: return "destroy_data";
+        case COMPFAIL_MANHACKS: return "manhacks";
+        case COMPFAIL_PUMP_EXPLODE: return "pump_explode";
+        case COMPFAIL_PUMP_LEAK: return "pump_leak";
+        case COMPFAIL_SECUBOTS: return "secubots";
+        case COMPFAIL_SHUTDOWN: return "shutdown";
+        // *INDENT-ON*
+        case NUM_COMPUTER_FAILURES:
+            break;
+    }
+    debugmsg( "Invalid computer_failure_type" );
+    abort();
+}
+} // namespace io
+
+template<>
+struct enum_traits<computer_action> {
+    static constexpr computer_action last = NUM_COMPUTER_ACTIONS;
+};
+
+template<>
+struct enum_traits<computer_failure_type> {
+    static constexpr computer_failure_type last = NUM_COMPUTER_FAILURES;
+};
+
+computer_option computer_option::from_json( const JsonObject &jo )
+{
+    translation name;
+    jo.read( "name", name );
+    const computer_action action = jo.get_enum_value<computer_action>( "action" );
+    const int sec = jo.get_int( "security", 0 );
+    return computer_option( name.translated(), action, sec );
 }
 
-computer_option computer_option::from_json( JsonObject &jo )
+computer_failure computer_failure::from_json( const JsonObject &jo )
 {
-    std::string name = jo.get_string( "name" );
-    computer_action action = computer_action_from_string( jo.get_string( "action" ) );
-    int sec = jo.get_int( "security", 0 );
-    return computer_option( name, action, sec );
-}
-
-computer_failure computer_failure::from_json( JsonObject &jo )
-{
-    computer_failure_type type = computer_failure_type_from_string( jo.get_string( "action" ) );
+    const computer_failure_type type = jo.get_enum_value<computer_failure_type>( "action" );
     return computer_failure( type );
-}
-
-computer_action computer_action_from_string( const std::string &str )
-{
-    static const std::map<std::string, computer_action> actions = {{
-            { "null", COMPACT_NULL },
-            { "open", COMPACT_OPEN },
-            { "open_disarm", COMPACT_OPEN_DISARM },
-            { "lock", COMPACT_LOCK },
-            { "unlock", COMPACT_UNLOCK },
-            { "unlock_disarm", COMPACT_UNLOCK_DISARM },
-            { "toll", COMPACT_TOLL },
-            { "sample", COMPACT_SAMPLE },
-            { "release", COMPACT_RELEASE },
-            { "release_bionics", COMPACT_RELEASE_BIONICS },
-            { "release_disarm", COMPACT_RELEASE_DISARM },
-            { "terminate", COMPACT_TERMINATE },
-            { "portal", COMPACT_PORTAL },
-            { "cascade", COMPACT_CASCADE },
-            { "research", COMPACT_RESEARCH },
-            { "maps", COMPACT_MAPS },
-            { "map_sewer", COMPACT_MAP_SEWER },
-            { "map_subway", COMPACT_MAP_SUBWAY },
-            { "miss_launch", COMPACT_MISS_LAUNCH },
-            { "miss_disarm", COMPACT_MISS_DISARM },
-            { "list_bionics", COMPACT_LIST_BIONICS },
-            { "elevator_on", COMPACT_ELEVATOR_ON },
-            { "amigara_log", COMPACT_AMIGARA_LOG },
-            { "amigara_start", COMPACT_AMIGARA_START },
-            { "complete_disable_external_power", COMPACT_COMPLETE_DISABLE_EXTERNAL_POWER },
-            { "repeater_mod", COMPACT_REPEATER_MOD },
-            { "download_software", COMPACT_DOWNLOAD_SOFTWARE },
-            { "blood_anal", COMPACT_BLOOD_ANAL },
-            { "data_anal", COMPACT_DATA_ANAL },
-            { "disconnect", COMPACT_DISCONNECT },
-            { "emerg_mess", COMPACT_EMERG_MESS },
-            { "emerg_ref_center", COMPACT_EMERG_REF_CENTER },
-            { "tower_unresponsive", COMPACT_TOWER_UNRESPONSIVE },
-            { "sr1_mess", COMPACT_SR1_MESS },
-            { "sr2_mess", COMPACT_SR2_MESS },
-            { "sr3_mess", COMPACT_SR3_MESS },
-            { "sr4_mess", COMPACT_SR4_MESS },
-            { "srcf_1_mess", COMPACT_SRCF_1_MESS },
-            { "srcf_2_mess", COMPACT_SRCF_2_MESS },
-            { "srcf_3_mess", COMPACT_SRCF_3_MESS },
-            { "srcf_seal_order", COMPACT_SRCF_SEAL_ORDER },
-            { "srcf_seal", COMPACT_SRCF_SEAL },
-            { "srcf_elevator", COMPACT_SRCF_ELEVATOR },
-            { "irradiator", COMPACT_IRRADIATOR },
-            { "geiger", COMPACT_GEIGER },
-            { "conveyor", COMPACT_CONVEYOR },
-            { "shutters", COMPACT_SHUTTERS },
-            { "extract_rad_source", COMPACT_EXTRACT_RAD_SOURCE },
-            { "deactivate_shock_vent", COMPACT_DEACTIVATE_SHOCK_VENT },
-            { "radio_archive", COMPACT_RADIO_ARCHIVE }
-        }
-    };
-
-    const auto iter = actions.find( str );
-    if( iter != actions.end() ) {
-        return iter->second;
-    }
-
-    debugmsg( "Invalid computer action %s", str );
-    return COMPACT_NULL;
-}
-
-computer_failure_type computer_failure_type_from_string( const std::string &str )
-{
-    static const std::map<std::string, computer_failure_type> fails = {{
-            { "null", COMPFAIL_NULL },
-            { "shutdown", COMPFAIL_SHUTDOWN },
-            { "alarm", COMPFAIL_ALARM },
-            { "manhacks", COMPFAIL_MANHACKS },
-            { "secubots", COMPFAIL_SECUBOTS },
-            { "damage", COMPFAIL_DAMAGE },
-            { "pump_explode", COMPFAIL_PUMP_EXPLODE },
-            { "pump_leak", COMPFAIL_PUMP_LEAK },
-            { "amigara", COMPFAIL_AMIGARA },
-            { "destroy_blood", COMPFAIL_DESTROY_BLOOD },
-            { "destroy_data", COMPFAIL_DESTROY_DATA }
-        }
-    };
-
-    const auto iter = fails.find( str );
-    if( iter != fails.end() ) {
-        return iter->second;
-    }
-
-    debugmsg( "Invalid computer failure %s", str );
-    return COMPFAIL_NULL;
 }

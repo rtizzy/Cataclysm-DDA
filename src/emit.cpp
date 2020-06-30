@@ -1,11 +1,12 @@
 #include "emit.h"
 
-#include <map>
 #include <algorithm>
+#include <map>
 #include <utility>
 
 #include "debug.h"
 #include "json.h"
+#include "string_id.h"
 
 static std::map<emit_id, emit> emits_all;
 
@@ -17,7 +18,7 @@ bool string_id<emit>::is_valid() const
     if( found == emits_all.end() ) {
         return false;
     }
-    return found->second.field() != fd_null;
+    return !found->second.field().id().is_null();
 }
 
 /** @relates string_id */
@@ -40,7 +41,7 @@ bool emit::is_null() const
     return id_ == emit_id::NULL_ID();
 }
 
-void emit::load_emit( JsonObject &jo )
+void emit::load_emit( const JsonObject &jo )
 {
     emit et;
 

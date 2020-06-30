@@ -1,6 +1,6 @@
 #pragma once
-#ifndef TEST_STATISTICS_H
-#define TEST_STATISTICS_H
+#ifndef CATA_TESTS_TEST_STATISTICS_H
+#define CATA_TESTS_TEST_STATISTICS_H
 
 #include <cmath>
 #include <limits>
@@ -117,12 +117,9 @@ class statistics
          * Returns true if the confidence interval partially overlaps the target region.
          */
         bool uncertain_about( const epsilon_threshold &t ) {
-            if( test_threshold( t ) || // Inside target
-                ( t.midpoint - t.epsilon ) > upper() || // Below target
-                ( t.midpoint + t.epsilon ) < lower() ) { // Above target
-                return false;
-            }
-            return true;
+            return !test_threshold( t ) && // Inside target
+                   t.midpoint - t.epsilon < upper() && // Below target
+                   t.midpoint + t.epsilon > lower(); // Above target
         }
 
         bool test_threshold( const epsilon_threshold &t ) {
@@ -230,4 +227,4 @@ inline BinomialMatcher IsBinomialObservation(
     return BinomialMatcher( num_samples, p, max_deviation );
 }
 
-#endif
+#endif // CATA_TESTS_TEST_STATISTICS_H
